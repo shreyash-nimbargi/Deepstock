@@ -1,0 +1,11 @@
+Flask
+pandas
+numpy
+requests
+yfinance
+beautifulsoup4
+fuzzywuzzy
+python-Levenshtein
+newspaper3k
+google
+googlesearch-python
