@@ -63,8 +63,9 @@
         }
 
         .container {
-            width: min(90%, 600px);
+            width: min(95%, 1400px);  /* Made wider */
             text-align: center;
+            padding: 2rem;
         }
 
         .logo-container {
@@ -435,6 +436,112 @@
             display: inline-block;
             vertical-align: middle;
         }
+
+        .preview-table {
+            margin: 2rem auto;
+            width: 100%;
+            overflow-x: auto;  /* Allow horizontal scroll if needed */
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.1);
+            max-height: 500px;  /* Increased from 400px */
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #6c63ff transparent;
+        }
+
+        .preview-table table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 0.95rem;  /* Slightly larger font */
+        }
+
+        .preview-table th {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 500;
+            border-bottom: 2px solid #f3f4f6;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .preview-table td {
+            padding: 1rem;
+            border-top: 1px solid #f3f4f6;
+            color: #374151;
+            white-space: nowrap;  /* Prevent text wrapping */
+        }
+
+        .preview-table tr:hover {
+            background: rgba(124, 58, 237, 0.05);
+        }
+
+        .preview-table tr {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .preview-table tr:hover td {
+            background: rgba(124, 58, 237, 0.08);
+            color: #6c63ff;
+        }
+
+        .preview-table tr:active {
+            transform: scale(0.995);
+        }
+
+        .company-name {
+            font-weight: 500;
+            color: #1f2937;
+        }
+
+        .stock-price {
+            font-family: 'JetBrains Mono', monospace;
+            color: #059669;
+        }
+
+        .stock-change.positive {
+            color: #059669;
+        }
+
+        .stock-change.negative {
+            color: #dc2626;
+        }
+
+        @media (max-width: 640px) {
+            .preview-table {
+                font-size: 0.8rem;
+                padding: 1rem;
+            }
+            
+            .preview-table td, .preview-table th {
+                padding: 0.75rem 0.5rem;
+            }
+        }
+
+        .table-loader {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            color: #6c63ff;
+        }
+
+        .preview-table tr.loading td {
+            background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;800&display=swap" rel="stylesheet">
 </head>
@@ -506,6 +613,23 @@
                     <input type="text" name="stock_name" placeholder="Search for any Indian stock..." required>
                     <input type="submit" value="Analyze">
                 </form>
+            </div>
+
+            <div class="preview-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Company</th>
+                            <th>Symbol</th>
+                            <th>Industry</th>
+                            <th>Series</th>
+                            <th>ISIN Code</th>
+                        </tr>
+                    </thead>
+                    <tbody id="previewTableBody">
+                        <!-- Will be populated dynamically -->
+                    </tbody>
+                </table>
             </div>
 
             {% if error %}
@@ -676,6 +800,54 @@
                 document.querySelector('.dropdown-menu')?.classList.remove('active');
             }
         });
+
+        // Function to load and display preview data
+        async function loadPreviewData() {
+            const tableBody = document.getElementById('previewTableBody');
+            
+            // Show loading state
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="5">
+                        <div class="table-loader">Loading stocks...</div>
+                    </td>
+                </tr>
+            `;
+
+            try {
+                const response = await fetch('ind_nifty500list.csv');
+                if (!response.ok) throw new Error('Failed to load data');
+                
+                const text = await response.text();
+                const rows = text.split('\n').slice(1);  // Skip header
+                
+                tableBody.innerHTML = rows.slice(0, 15).map(row => {
+                    const [company, industry, symbol, series, isin] = row.split(',');
+                    return `
+                        <tr onclick="document.querySelector('input[name=stock_name]').value='${symbol}'">
+                            <td class="company-name">${company}</td>
+                            <td>${symbol}</td>
+                            <td>${industry}</td>
+                            <td>${series}</td>
+                            <td>${isin}</td>
+                        </tr>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error(error);
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align:center">
+                            Unable to load stock data. <a href="#" onclick="loadPreviewData()">Retry</a>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // Load preview data when page loads
+        document.addEventListener('DOMContentLoaded', loadPreviewData);
     </script>
 </body>
 </html>
