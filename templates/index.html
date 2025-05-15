@@ -142,14 +142,210 @@
                 width: 100%;
             }
         }
+
+        /* Auth Modal Styles */
+        .auth-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .auth-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 24px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .auth-tab {
+            padding: 1rem 2rem;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #666;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .auth-tab.active {
+            color: #6c63ff;
+            border-bottom-color: #6c63ff;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #444;
+            font-size: 0.9rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .password-input {
+            position: relative;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #666;
+        }
+
+        /* User Menu Styles */
+        .user-menu {
+            position: relative;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #6c63ff, #ff6b9b);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 500;
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 0.5rem;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            min-width: 200px;
+            display: none;
+        }
+
+        .dropdown-menu.active {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .dropdown-item {
+            padding: 0.8rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #444;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .dropdown-item:hover {
+            background: #f8f8f8;
+        }
+
+        /* Welcome Toast */
+        .welcome-toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
+    <div class="auth-modal" id="authModal">
+        <div class="auth-container">
+            <div class="auth-tabs">
+                <div class="auth-tab active" data-tab="login">Login</div>
+                <div class="auth-tab" data-tab="signup">Sign Up</div>
+            </div>
+            
+            <form id="loginForm" class="auth-form">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="password-input">
+                        <input type="password" required>
+                        <span class="password-toggle">👁️</span>
+                    </div>
+                </div>
+                <input type="submit" value="Login" class="button primary">
+            </form>
+        </div>
+    </div>
+
     <nav class="nav">
         <a href="/login" class="nav-button">Login</a>
         <a href="/signup" class="nav-button primary">Sign Up</a>
     </nav>
+
+    <div class="user-menu" style="display: none;">
+        <div class="user-avatar">JS</div>
+        <div class="dropdown-menu">
+            <a href="#" class="dropdown-item">
+                <span>👤</span> My Profile
+            </a>
+            <a href="#" class="dropdown-item">
+                <span>🔍</span> My Searches
+            </a>
+            <a href="#" class="dropdown-item">
+                <span>⭐</span> Saved Stocks
+            </a>
+            <a href="#" class="dropdown-item">
+                <span>🌙</span> Dark Mode
+            </a>
+            <a href="#" class="dropdown-item">
+                <span>👋</span> Logout
+            </a>
+        </div>
+    </div>
 
     <div class="container">
         <div class="logo-container">
@@ -215,6 +411,36 @@
     <script>
         document.querySelector('.search-form').addEventListener('submit', function() {
             document.querySelector('.loader').classList.add('active');
+        });
+
+        // Auth tabs switching
+        document.querySelectorAll('.auth-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                // Toggle forms here
+            });
+        });
+
+        // Password visibility toggle
+        document.querySelectorAll('.password-toggle').forEach(toggle => {
+            toggle.addEventListener('click', (e) => {
+                const input = e.target.previousElementSibling;
+                input.type = input.type === 'password' ? 'text' : 'password';
+                toggle.textContent = input.type === 'password' ? '👁️' : '👁️‍🗨️';
+            });
+        });
+
+        // User dropdown toggle
+        document.querySelector('.user-avatar')?.addEventListener('click', () => {
+            document.querySelector('.dropdown-menu').classList.toggle('active');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.user-menu')) {
+                document.querySelector('.dropdown-menu')?.classList.remove('active');
+            }
         });
     </script>
 </body>
