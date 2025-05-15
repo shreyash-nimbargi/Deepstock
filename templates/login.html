@@ -55,28 +55,36 @@
         .button {
             background: linear-gradient(45deg, #00b4d8, #ff3366);
             color: white;
-            padding: 14px 28px;
+            padding: 0.8rem 1.5rem;
             border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 500;
             cursor: pointer;
             width: 100%;
             transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 180, 216, 0.3);
         }
         .button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 180, 216, 0.4);
+            background: linear-gradient(45deg, #ff3366, #00b4d8);
+            box-shadow: 0 6px 20px rgba(0, 180, 216, 0.4);
         }
         .switch-form {
             text-align: center;
-            margin-top: 20px;
+            margin-top: 1.5rem;
             color: #666;
         }
         .switch-form a {
             color: #00b4d8;
             text-decoration: none;
-            font-weight: 600;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+        .switch-form a:hover {
+            background: rgba(0, 180, 216, 0.1);
         }
         .error {
             color: #ff3366;
