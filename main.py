@@ -3,6 +3,8 @@ import json
 import logging
 import time
 from datetime import datetime
+import sqlite3
+import os
 
 # Third-party imports
 import pandas as pd
@@ -10,8 +12,9 @@ import numpy as np
 import requests
 import yfinance as yf
 from bs4 import BeautifulSoup
-from flask import Flask, request, render_template, make_response
+from flask import Flask, request, render_template, make_response, redirect, url_for, session
 from fuzzywuzzy import process, fuzz
+from werkzeug.security import generate_password_hash, check_password_hash
 try:
     from newspaper import Article
 except ImportError as e:
@@ -46,6 +49,20 @@ logger = logging.getLogger(__name__)
 # Set Gemini API key
 GEMINI_API_KEY = "AIzaSyDHRR7_kghJOm9P8gDlMn1tJRLgndoN_rQ"
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+
+# Initialize the database
+def init_db():
+    db_path = os.path.join(os.path.dirname(__file__), 'users.db')
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  email TEXT UNIQUE NOT NULL,
+                  password TEXT NOT NULL)''')
+    conn.commit()
+    conn.close()
+
+init_db()
 
 # Load NSE stocks from CSV
 def get_nse_stocks():
@@ -241,8 +258,63 @@ def analyze_with_gemini(news_text, volatility, stock_name):
         }
 
 # Routes
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form.get("email")
+        password = request.form.get("password")
+        
+        conn = sqlite3.connect('users.db')
+        c = conn.cursor()
+        c.execute("SELECT * FROM users WHERE email = ?", (email,))
+        user = c.fetchone()
+        conn.close()
+
+        if user and check_password_hash(user[2], password):
+            session['user_id'] = user[0]
+            session['email'] = user[1]
+            return redirect(url_for('index'))
+        
+        return render_template("login.html", error="Invalid email or password")
+    
+    return render_template("login.html", signup=False)
+
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+    if request.method == "POST":
+        email = request.form.get("email")
+        password = request.form.get("password")
+        confirm_password = request.form.get("confirm_password")
+
+        if password != confirm_password:
+            return render_template("login.html", signup=True, error="Passwords do not match")
+
+        hashed_password = generate_password_hash(password)
+        
+        try:
+            conn = sqlite3.connect('users.db')
+            c = conn.cursor()
+            c.execute("INSERT INTO users (email, password) VALUES (?, ?)", 
+                     (email, hashed_password))
+            conn.commit()
+            conn.close()
+            
+            return redirect(url_for('login'))
+        except sqlite3.IntegrityError:
+            return render_template("login.html", signup=True, error="Email already exists")
+
+    return render_template("login.html", signup=True)
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
 @app.route("/", methods=["GET", "POST"])
 def index():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
     logger.debug("Entering index route")
     logger.info("Received request to root endpoint")
     
@@ -319,6 +391,9 @@ def index():
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
         return response
+
+# Add session configuration
+app.secret_key = 'your-secret-key-here'  # Change this to a secure secret key
 
 if __name__ == "__main__":
     logger.info("Starting DeepStock application")
