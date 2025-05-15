@@ -6,7 +6,7 @@
     <title>DeepStock</title>
     <style>
         body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            background: linear-gradient(135deg, #eef2f9 0%, #dbeafe 100%);
             font-family: 'Poppins', sans-serif;
             margin: 0;
             min-height: 100vh;
@@ -48,80 +48,133 @@
             box-shadow: 0 4px 15px rgba(108, 99, 255, 0.2);
         }
 
+        .main-content {
+            display: none;
+            min-height: 100vh;
+            width: 100%;
+            background: linear-gradient(135deg, #eef2f9 0%, #dbeafe 100%);
+        }
+
+        .main-content.visible {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+
         .container {
             width: min(90%, 600px);
             text-align: center;
-            margin-top: -5vh;
         }
 
         .logo-container {
-            margin-bottom: 2rem;
+            margin-bottom: 3rem;
             display: flex;
-            align-items: center;
             justify-content: center;
-            gap: 1rem;
-        }
-
-        .stock-icon {
-            width: 48px;
-            height: 48px;
-            fill: #6c63ff;
+            opacity: 0;
+            animation: slideDown 0.6s ease forwards;
         }
 
         .title {
-            font-size: clamp(2.5rem, 8vw, 3.5rem);
-            font-weight: 700;
-            background: linear-gradient(45deg, #6c63ff, #ff6b9b);
+            font-size: 3.5rem;
+            font-weight: 600;
+            background: linear-gradient(45deg, #7c3aed, #ec4899);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
+            text-shadow: 0 2px 10px rgba(124, 58, 237, 0.1);
             margin: 0;
         }
 
         .search-container {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(10px);
-            padding: 2rem;
-            border-radius: 24px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 0.5rem;
+            border-radius: 100px;
+            box-shadow: 0 8px 32px -4px rgba(124, 58, 237, 0.15);
+            width: 600px;
+            max-width: 90%;
+            border: 1px solid rgba(229, 231, 235, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .search-container:hover {
+            box-shadow: 0 12px 36px -4px rgba(124, 58, 237, 0.2);
+            border-color: rgba(124, 58, 237, 0.2);
         }
 
         .search-form {
             display: flex;
-            gap: 0.5rem;
+            align-items: center;
+            gap: 0.75rem;
+            width: 100%;
+            position: relative;
+            padding: 0.25rem;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1.25rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            z-index: 2;
+        }
+
+        .search-icon svg {
+            width: 100%;
+            height: 100%;
+            fill: none;
+            stroke: url(#search-icon-gradient);
+            stroke-width: 1.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
 
         input[type="text"] {
             flex: 1;
-            padding: 1rem 1.5rem;
+            padding: 0.875rem 1rem 0.875rem 3rem;
             font-size: 1rem;
-            border: 2px solid transparent;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.9);
-            transition: all 0.3s ease;
+            border: none;
+            border-radius: 100px;
+            background: transparent;
+            color: #374151;
+            transition: all 0.2s ease;
+        }
+
+        input[type="text"]::placeholder {
+            color: #9ca3af;
         }
 
         input[type="text"]:focus {
             outline: none;
-            border-color: #6c63ff;
-            box-shadow: 0 0 0 4px rgba(108, 99, 255, 0.1);
+            box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.1);
         }
 
         input[type="submit"] {
-            padding: 1rem 2rem;
-            font-size: 1rem;
-            font-weight: 600;
-            border: none;
-            border-radius: 12px;
-            background: linear-gradient(45deg, #6c63ff, #ff6b9b);
+            padding: 0.875rem 2rem;
+            background: linear-gradient(45deg, #6366f1, #ec4899);
             color: white;
+            font-weight: 500;
+            border-radius: 100px;
+            border: none;
             cursor: pointer;
             transition: all 0.3s ease;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px -2px rgba(99, 102, 241, 0.3);
         }
 
         input[type="submit"]:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
+            transform: translateY(-1px) scale(1.02);
+            filter: brightness(1.05);
+            box-shadow: 0 4px 12px -2px rgba(99, 102, 241, 0.4);
+        }
+
+        input[type="submit"]:active {
+            transform: translateY(0) scale(0.98);
         }
 
         @media (max-width: 640px) {
@@ -134,12 +187,31 @@
                 font-size: 0.9rem;
             }
 
+            .search-container {
+                padding: 0.75rem;
+            }
+
             .search-form {
                 flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            input[type="text"] {
+                width: 100%;
+                padding: 1rem 1rem 1rem 3rem;
             }
 
             input[type="submit"] {
                 width: 100%;
+                padding: 1rem;
+            }
+
+            .search-icon {
+                top: 1.125rem;
+            }
+
+            .title {
+                font-size: 2.5rem;
             }
         }
 
@@ -229,13 +301,21 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: linear-gradient(45deg, #6c63ff, #ff6b9b);
+            background: linear-gradient(45deg, #7c3aed, #ec4899);
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
             font-weight: 500;
+            transition: transform 0.2s ease;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        .user-avatar:hover {
+            transform: translateY(-2px);
         }
 
         .dropdown-menu {
@@ -244,19 +324,23 @@
             right: 0;
             margin-top: 0.5rem;
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 16px;
+            padding: 0.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
             min-width: 200px;
             display: none;
+            transform-origin: top right;
         }
 
         .dropdown-menu.active {
             display: block;
-            animation: fadeIn 0.2s ease;
+            animation: scaleIn 0.2s ease;
         }
 
         .dropdown-item {
-            padding: 0.8rem 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            font-weight: 500;
             display: flex;
             align-items: center;
             gap: 0.5rem;
@@ -266,7 +350,20 @@
         }
 
         .dropdown-item:hover {
-            background: #f8f8f8;
+            background: #f1f5f9;
+            color: #7c3aed;
+        }
+
+        @media (max-width: 640px) {
+            .dropdown-menu {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                margin: 1rem;
+                transform-origin: bottom center;
+                border-radius: 20px;
+            }
         }
 
         /* Welcome Toast */
@@ -292,6 +389,51 @@
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .welcome-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            color: #333;
+            padding: 0.8rem 1.5rem;
+            border-radius: 100px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            max-width: 300px;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .welcome-message::before {
+            content: "👋";
+        }
+
+        .welcome-message span {
+            text-overflow: ellipsis;
+            overflow: hidden;
+            max-width: 200px;
+            display: inline-block;
+            vertical-align: middle;
         }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;800&display=swap" rel="stylesheet">
@@ -322,84 +464,89 @@
     </div>
 
     <nav class="nav">
-        <a href="/login" class="nav-button">Login</a>
-        <a href="/signup" class="nav-button primary">Sign Up</a>
+        <div class="auth-buttons" id="authButtons">
+            <a href="#" class="nav-button login-btn">Login</a>
+            <a href="#" class="nav-button primary signup-btn">Sign Up</a>
+        </div>
+        <div class="user-menu" id="userMenu" style="display: none;">
+            <div class="user-avatar">JS</div>
+            <div class="dropdown-menu">
+                <a href="#" class="dropdown-item">
+                    <span>👤</span> My Profile
+                </a>
+                <a href="#" class="dropdown-item">
+                    <span>🔍</span> My Searches
+                </a>
+                <a href="#" class="dropdown-item">
+                    <span>⭐</span> Saved Stocks
+                </a>
+                <a href="#" class="dropdown-item">
+                    <span>🌙</span> Dark Mode
+                </a>
+                <a href="#" class="dropdown-item">
+                    <span>👋</span> Logout
+                </a>
+            </div>
+        </div>
     </nav>
 
-    <div class="user-menu" style="display: none;">
-        <div class="user-avatar">JS</div>
-        <div class="dropdown-menu">
-            <a href="#" class="dropdown-item">
-                <span>👤</span> My Profile
-            </a>
-            <a href="#" class="dropdown-item">
-                <span>🔍</span> My Searches
-            </a>
-            <a href="#" class="dropdown-item">
-                <span>⭐</span> Saved Stocks
-            </a>
-            <a href="#" class="dropdown-item">
-                <span>🌙</span> Dark Mode
-            </a>
-            <a href="#" class="dropdown-item">
-                <span>👋</span> Logout
-            </a>
-        </div>
-    </div>
-
-    <div class="container">
-        <div class="logo-container">
-            <svg class="stock-icon" viewBox="0 0 24 24">
-                <path d="M3 1.5h18c.8 0 1.5.7 1.5 1.5v18c0 .8-.7 1.5-1.5 1.5H3c-.8 0-1.5-.7-1.5-1.5V3c0-.8.7-1.5 1.5-1.5zm1.5 3v15h15V4.5h-15zM15 15l-3-3-3 3-3-3v4.5h12V12l-3 3z"/>
-            </svg>
-            <h1 class="title">DeepStock</h1>
-        </div>
-        
-        <div class="search-container">
-            <form class="search-form" method="POST">
-                <input type="text" name="stock_name" placeholder="Search for any Indian stock (e.g., Reliance, TCS)" required>
-                <input type="submit" value="Analyze">
-            </form>
-        </div>
-
-        {% if error %}
-            <div class="error">{{ error }}</div>
-        {% endif %}
-
-        {% if risk_level %}
-            <div class="result">
-                <div class="stock-name">{{ stock_name }}</div>
-                <div class="stock-meta">{{ industry }} • {{ series }}</div>
-                
-                <div class="metrics">
-                    <div class="metric">
-                        Price <span>₹{{ current_price }}</span>
-                    </div>
-                    <div class="metric">
-                        Risk <span>{{ risk_level }}</span>
-                    </div>
-                    <div class="metric">
-                        Sentiment <span>{{ sentiment }}</span>
-                    </div>
-                </div>
-
-                <div class="news">
-                    <h3>Positive News</h3>
-                    <ul>
-                        {% for news in good_news %}
-                            <li>{{ news }}</li>
-                        {% endfor %}
-                    </ul>
-
-                    <h3>Negative News</h3>
-                    <ul>
-                        {% for news in bad_news %}
-                            <li>{{ news }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
+    <div class="main-content" id="mainContent">
+        <div class="container">
+            <div class="logo-container">
+                <h1 class="title">DeepStock</h1>
             </div>
-        {% endif %}
+            
+            <div class="search-container">
+                <form class="search-form" method="POST">
+                    <span class="search-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M2 12h4l3-9 3 18 3-12 3 6h4"/>
+                        </svg>
+                    </span>
+                    <input type="text" name="stock_name" placeholder="Search for any Indian stock..." required>
+                    <input type="submit" value="Analyze">
+                </form>
+            </div>
+
+            {% if error %}
+                <div class="error">{{ error }}</div>
+            {% endif %}
+
+            {% if risk_level %}
+                <div class="result">
+                    <div class="stock-name">{{ stock_name }}</div>
+                    <div class="stock-meta">{{ industry }} • {{ series }}</div>
+                    
+                    <div class="metrics">
+                        <div class="metric">
+                            Price <span>₹{{ current_price }}</span>
+                        </div>
+                        <div class="metric">
+                            Risk <span>{{ risk_level }}</span>
+                        </div>
+                        <div class="metric">
+                            Sentiment <span>{{ sentiment }}</span>
+                        </div>
+                    </div>
+
+                    <div class="news">
+                        <h3>Positive News</h3>
+                        <ul>
+                            {% for news in good_news %}
+                                <li>{{ news }}</li>
+                            {% endfor %}
+                        </ul>
+
+                        <h3>Negative News</h3>
+                        <ul>
+                            {% for news in bad_news %}
+                                <li>{{ news }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
     </div>
 
     <div class="loader">
@@ -408,7 +555,94 @@
         <div class="dot"></div>
     </div>
 
+    <!-- Add gradient definition for logo -->
+    <svg width="0" height="0">
+        <defs>
+            <linearGradient id="logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color: #7c3aed" />
+                <stop offset="100%" style="stop-color: #ec4899" />
+            </linearGradient>
+            <linearGradient id="search-icon-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color: #6366f1"/>
+                <stop offset="100%" style="stop-color: #ec4899"/>
+            </linearGradient>
+        </defs>
+    </svg>
+
     <script>
+        // Authentication state management
+        let isAuthenticated = false;
+        const authModal = document.getElementById('authModal');
+        const mainContent = document.getElementById('mainContent');
+        const authButtons = document.getElementById('authButtons');
+        const userMenu = document.getElementById('userMenu');
+
+        // Function to handle login
+        function handleLogin(e) {
+            e.preventDefault();
+            const email = document.querySelector('#loginForm input[type="email"]').value;
+            const username = email.split('@')[0];
+            
+            isAuthenticated = true;
+            showMainContent();
+            
+            // Update user avatar initials
+            document.querySelector('.user-avatar').textContent = username.slice(0, 2);
+            
+            // Show welcome message with truncation
+            const welcomeMsg = document.createElement('div');
+            welcomeMsg.className = 'welcome-message';
+            welcomeMsg.innerHTML = `Welcome back, <span>${username}</span>!`;
+            document.body.appendChild(welcomeMsg);
+            
+            setTimeout(() => {
+                welcomeMsg.remove();
+            }, 3000);
+        }
+
+        // Function to show main content after authentication
+        function showMainContent() {
+            authModal.style.display = 'none';
+            mainContent.classList.add('visible');
+            authButtons.style.display = 'none';
+            userMenu.style.display = 'block';
+        }
+
+        // Function to handle logout
+        function handleLogout() {
+            isAuthenticated = false;
+            mainContent.classList.remove('visible');
+            authButtons.style.display = 'flex';
+            userMenu.style.display = 'none';
+            authModal.style.display = 'flex';
+        }
+
+        // Event Listeners
+        document.getElementById('loginForm').addEventListener('submit', handleLogin);
+        document.querySelector('.login-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            authModal.style.display = 'flex';
+        });
+
+        document.querySelector('.signup-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            authModal.style.display = 'flex';
+            document.querySelector('[data-tab="signup"]').click();
+        });
+
+        // Add logout handler
+        document.querySelector('.dropdown-item:last-child').addEventListener('click', (e) => {
+            e.preventDefault();
+            handleLogout();
+        });
+
+        // Close modal if clicking outside
+        authModal.addEventListener('click', (e) => {
+            if (e.target === authModal) {
+                authModal.style.display = 'none';
+            }
+        });
+
         document.querySelector('.search-form').addEventListener('submit', function() {
             document.querySelector('.loader').classList.add('active');
         });
