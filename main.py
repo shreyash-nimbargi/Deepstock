@@ -320,7 +320,7 @@ def index():
     
     if request.method == "GET":
         logger.info("Rendering initial page (GET request)")
-        response = make_response(render_template("index.html"))
+        response = make_response(render_template("index.html", session=session))
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
@@ -335,7 +335,7 @@ def index():
         stock_symbol, corrected_stock_name, stock_details = fuzzy_match_stock(stock_name, nse_stocks)
         if not stock_symbol:
             logger.warning("Stock symbol not found after fuzzy matching")
-            response = make_response(render_template("index.html", error="Stock not found or invalid input."))
+            response = make_response(render_template("index.html", session=session, error="Stock not found or invalid input."))
             response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
             return response
 
@@ -343,14 +343,14 @@ def index():
         hist, volatility = get_stock_data(stock_symbol)
         if hist is None:
             logger.warning("No stock data available")
-            response = make_response(render_template("index.html", error="Stock data not available."))
+            response = make_response(render_template("index.html", session=session, error="Stock data not available."))
             response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
             return response
 
         analysis = analyze_with_gemini(news_text, volatility, corrected_stock_name)
         if not analysis:
             logger.warning("Gemini API analysis returned no result")
-            response = make_response(render_template("index.html", error="Analysis failed."))
+            response = make_response(render_template("index.html", session=session, error="Analysis failed."))
             response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
             return response
 
@@ -374,6 +374,7 @@ def index():
 
         response = make_response(render_template(
             "index.html",
+            session=session,
             stock_name=corrected_stock_name,
             risk_level=risk_level,
             current_price=current_price,

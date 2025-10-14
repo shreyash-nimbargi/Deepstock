@@ -1,12 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeepStock - Login</title>
+    <title>DeepStock - {{ "Sign Up" if signup else "Login" }}</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            background: linear-gradient(135deg, #e8ecef, #d3dce6);
+            background: linear-gradient(135deg, #eef2f9 0%, #dbeafe 100%);
             font-family: 'Poppins', sans-serif;
             margin: 0;
             padding: 0;
@@ -15,116 +22,298 @@
             justify-content: center;
             align-items: center;
         }
+
         .container {
             background: rgba(255, 255, 255, 0.95);
             border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 2.5rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
-        .title {
-            font-size: 36px;
-            font-weight: 800;
-            color: #00b4d8;
+
+        .logo-section {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 2rem;
         }
+
+        .title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #6366f1, #ec4899);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+        }
+
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 1.5rem;
         }
+
         .form-group label {
             display: block;
-            margin-bottom: 8px;
-            color: #333;
+            margin-bottom: 0.5rem;
+            color: #374151;
             font-weight: 500;
+            font-size: 0.9rem;
         }
+
         .form-group input {
             width: 100%;
-            padding: 12px;
-            border: 2px solid #e1e1e1;
-            border-radius: 10px;
-            font-size: 16px;
-            transition: all 0.3s ease;
-        }
-        .form-group input:focus {
-            border-color: #00b4d8;
-            outline: none;
-            box-shadow: 0 0 10px rgba(0, 180, 216, 0.2);
-        }
-        .button {
-            background: linear-gradient(45deg, #00b4d8, #ff3366);
-            color: white;
-            padding: 0.8rem 1.5rem;
-            border: none;
-            border-radius: 25px;
+            padding: 0.875rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
             font-size: 1rem;
-            font-weight: 500;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .form-group input:focus {
+            border-color: #6366f1;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            background: white;
+        }
+
+        .password-input {
+            position: relative;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 0.875rem;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            user-select: none;
+            color: #6b7280;
+            font-size: 1.2rem;
+        }
+
+        .button {
+            background: linear-gradient(45deg, #6366f1, #ec4899);
+            color: white;
+            padding: 0.875rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
             width: 100%;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0, 180, 216, 0.3);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
         }
+
         .button:hover {
             transform: translateY(-2px);
-            background: linear-gradient(45deg, #ff3366, #00b4d8);
-            box-shadow: 0 6px 20px rgba(0, 180, 216, 0.4);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
         }
+
+        .button:active {
+            transform: translateY(0);
+        }
+
         .switch-form {
             text-align: center;
-            margin-top: 1.5rem;
-            color: #666;
+            margin-top: 2rem;
+            color: #6b7280;
+            font-size: 0.9rem;
         }
+
         .switch-form a {
-            color: #00b4d8;
+            color: #6366f1;
             text-decoration: none;
-            font-weight: 500;
+            font-weight: 600;
             padding: 0.5rem 1rem;
-            border-radius: 20px;
+            border-radius: 8px;
             transition: all 0.3s ease;
         }
+
         .switch-form a:hover {
-            background: rgba(0, 180, 216, 0.1);
+            background: rgba(99, 102, 241, 0.1);
         }
+
         .error {
-            color: #ff3366;
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 0.875rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            border: 1px solid #fecaca;
             text-align: center;
-            margin-bottom: 20px;
-            font-size: 14px;
+        }
+
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .loading .button {
+            background: #9ca3af;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                margin: 1rem;
+                padding: 2rem;
+            }
+
+            .title {
+                font-size: 2rem;
+            }
+        }
+
+        /* Animation for form appearance */
+        .container {
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="container">
-        <div class="title">DeepStock</div>
+        <div class="logo-section">
+            <div class="title">DeepStock</div>
+            <div class="subtitle">
+                {{ "Create your account to get started" if signup else "Welcome back! Please sign in to your account" }}
+            </div>
+        </div>
+
         {% if error %}
         <div class="error">{{ error }}</div>
         {% endif %}
-        <form method="POST" action="{{ url_for('login') if not signup else url_for('signup') }}">
+
+        <form method="POST" action="{{ url_for('login') if not signup else url_for('signup') }}" id="authForm">
             <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" required>
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" required placeholder="Enter your email">
             </div>
+
             <div class="form-group">
                 <label for="password">Password</label>
-                <input type="password" id="password" name="password" required>
+                <div class="password-input">
+                    <input type="password" id="password" name="password" required
+                        placeholder="{{ 'Create a password' if signup else 'Enter your password' }}">
+                    <span class="password-toggle" onclick="togglePassword('password')">👁️</span>
+                </div>
             </div>
+
             {% if signup %}
             <div class="form-group">
                 <label for="confirm_password">Confirm Password</label>
-                <input type="password" id="confirm_password" name="confirm_password" required>
+                <div class="password-input">
+                    <input type="password" id="confirm_password" name="confirm_password" required
+                        placeholder="Confirm your password">
+                    <span class="password-toggle" onclick="togglePassword('confirm_password')">👁️</span>
+                </div>
             </div>
             {% endif %}
-            <button type="submit" class="button">{{ "Sign Up" if signup else "Login" }}</button>
+
+            <button type="submit" class="button" id="submitBtn">
+                {{ "Create Account" if signup else "Sign In" }}
+            </button>
         </form>
+
         <div class="switch-form">
             {% if signup %}
-            Already have an account? <a href="{{ url_for('login') }}">Login</a>
+            Already have an account? <a href="{{ url_for('login') }}">Sign In</a>
             {% else %}
-            Don't have an account? <a href="{{ url_for('signup') }}">Sign Up</a>
+            Don't have an account? <a href="{{ url_for('signup') }}">Create Account</a>
             {% endif %}
         </div>
     </div>
+
+    <script>
+        function togglePassword(fieldId) {
+            const field = document.getElementById(fieldId);
+            const toggle = field.nextElementSibling;
+
+            if (field.type === 'password') {
+                field.type = 'text';
+                toggle.textContent = '🙈';
+            } else {
+                field.type = 'password';
+                toggle.textContent = '👁️';
+            }
+        }
+
+        // Form submission handling
+        document.getElementById('authForm').addEventListener('submit', function (e) {
+            const submitBtn = document.getElementById('submitBtn');
+            const container = document.querySelector('.container');
+
+            // Add loading state
+            container.classList.add('loading');
+            {% if signup %}
+            submitBtn.textContent = 'Creating Account...';
+            {% else %}
+            submitBtn.textContent = 'Signing In...';
+            {% endif %}
+
+            // Validate passwords match for signup
+            {% if signup %}
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+
+            if (password !== confirmPassword) {
+                e.preventDefault();
+                container.classList.remove('loading');
+                submitBtn.textContent = 'Create Account';
+
+                // Show error
+                const existingError = document.querySelector('.error');
+                if (existingError) {
+                    existingError.textContent = 'Passwords do not match';
+                } else {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'error';
+                    errorDiv.textContent = 'Passwords do not match';
+                    document.querySelector('form').insertBefore(errorDiv, document.querySelector('.form-group'));
+                }
+                return false;
+            }
+            {% endif %}
+        });
+
+        // Add input validation
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', function () {
+                if (this.validity.valid) {
+                    this.style.borderColor = '#10b981';
+                } else {
+                    this.style.borderColor = '#e5e7eb';
+                }
+            });
+        });
+
+        // Auto-focus first input
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('email').focus();
+        });
+    </script>
 </body>
+
 </html>
