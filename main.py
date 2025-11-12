@@ -1,68 +1,34 @@
-# Standard library imports
-import json
-import logging
-import time
-from datetime import datetime
-import sqlite3
-import os
-
-# Third-party imports
+from flask import Flask, request, render_template, make_response
+import yfinance as yf
+import requests
+from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
-import requests
-import yfinance as yf
-from bs4 import BeautifulSoup
-from flask import Flask, request, render_template, make_response, redirect, url_for, session
+import json
+from datetime import datetime
 from fuzzywuzzy import process, fuzz
-from werkzeug.security import generate_password_hash, check_password_hash
-try:
-    from newspaper import Article
-except ImportError as e:
-    print("Error: Missing required dependencies for newspaper module.")
-    print("Please run: pip install 'lxml[html_clean]' newspaper3k")
-    raise e
-from googlesearch import search
+import logging
+from gnews import GNews  # Import GNews
+from newspaper import Article  # Import newspaper3k
+import time
 
 # Initialize Flask app
-app = Flask(__name__, template_folder='templates', static_folder='static')
+app = Flask(__name__, template_folder='templates')
 
-# Configure logging with try-except for file handling
-try:
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler("stock_app.log"),
-            logging.StreamHandler()
-        ]
-    )
-except Exception as e:
-    # Fallback to console-only logging if file creation fails
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[logging.StreamHandler()]
-    )
-    
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("stock_app.log"),
+        logging.StreamHandler()
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # Set Gemini API key
 GEMINI_API_KEY = "AIzaSyDHRR7_kghJOm9P8gDlMn1tJRLgndoN_rQ"
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
-
-# Initialize the database
-def init_db():
-    db_path = os.path.join(os.path.dirname(__file__), 'users.db')
-    conn = sqlite3.connect(db_path)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  email TEXT UNIQUE NOT NULL,
-                  password TEXT NOT NULL)''')
-    conn.commit()
-    conn.close()
-
-init_db()
 
 # Load NSE stocks from CSV
 def get_nse_stocks():
@@ -132,145 +98,62 @@ def fuzzy_match_stock(stock_name, stock_list):
     logger.warning(f"No good match found for {stock_name} (name score: {score}, symbol score: {symbol_score})")
     return None, None, None
 
+import requests
+from bs4 import BeautifulSoup
+from newspaper import Article
+from googlesearch import search
+from datetime import datetime
+
 def scrape_news(stock_name, stock_symbol):
-    """Optimized news scraping with timeout and error handling"""
-    logger.info(f"Starting news scraping for {stock_name}")
+    stock_name = stock_name.replace("Ltd.", "").strip()  # Clean stock name
+    news_text = ""
+    stock_short_name = stock_symbol.split('.')[0].lower()  # e.g., "tatapower"
+    today_date = datetime.today().strftime("%Y-%m-%d")  # Format: YYYY-MM-DD
+    query = f"{stock_name} {stock_short_name} stock {today_date} news"
     
-    try:
-        stock_name_clean = stock_name.replace("Ltd.", "").replace("Limited", "").strip()
-        stock_short_name = stock_symbol.split('.')[0].lower()
-        today_date = datetime.today().strftime("%Y-%m-%d")
-        
-        # Simplified query for better results
-        query = f"{stock_short_name} stock news {today_date}"
-        logger.debug(f"News search query: {query}")
-        
-        news_text = ""
-        articles_processed = 0
-        max_articles = 3  # Reduced from 10 to 3 for faster processing
-        
-        # Get search results with timeout
+    news_articles = list(search(query, num_results=10, sleep_interval=2))
+    
+    for i, url in enumerate(news_articles[:10], 1):
         try:
-            news_articles = list(search(query, num_results=max_articles, sleep_interval=1))
-            logger.info(f"Found {len(news_articles)} news articles")
-        except Exception as e:
-            logger.warning(f"Google search failed: {str(e)}")
-            return generate_fallback_news(stock_name_clean, stock_short_name)
-        
-        for i, url in enumerate(news_articles[:max_articles], 1):
-            try:
-                logger.debug(f"Processing article {i}: {url}")
-                
-                # Set timeout for article processing
-                article = Article(url, fetch_images=False)
-                article.download()
-                article.parse()
-                
-                if article.title and len(article.title.strip()) > 10:
-                    title = article.title.strip()[:100]  # Limit title length
-                    content = article.text.strip()[:500]  # Reduced content length
-                    
-                    # Check if article is relevant
-                    stock_keywords = [stock_name_clean.lower(), stock_short_name.lower()]
-                    if any(keyword in title.lower() or keyword in content.lower() for keyword in stock_keywords):
-                        news_content = f"### news{i} = {title} - {content}\n"
-                        news_text += news_content
-                        articles_processed += 1
-                        logger.debug(f"Added relevant article {i}")
-                    
-                # Stop if we have enough content
-                if len(news_text.split()) > 1000:
-                    break
-                    
-            except Exception as e:
-                logger.warning(f"Failed to process article {i}: {str(e)}")
-                continue
-        
-        logger.info(f"News scraping completed. Processed {articles_processed} relevant articles")
-        return news_text if news_text else generate_fallback_news(stock_name_clean, stock_short_name)
-        
-    except Exception as e:
-        logger.error(f"News scraping failed completely: {str(e)}")
-        return generate_fallback_news(stock_name, stock_symbol.split('.')[0])
+            article = Article(url, fetch_images=False)
+            article.download()
+            article.parse()
+            full_content = article.text.strip()[:1000]  # Limit to 1000 chars
 
-def generate_fallback_news(stock_name, stock_symbol):
-    """Generate fallback news when scraping fails"""
-    logger.info("Generating fallback news content")
-    fallback_news = f"""
-### news1 = {stock_name} Stock Analysis - Market analysts are closely watching {stock_name} ({stock_symbol}) for its recent performance and future prospects.
+            news_content = f"### news{i} = {article.title} - {full_content}\n"
+            news_content.replace("Advertisement Remove Ad","")
+            stock_keywords = [stock_name.lower(), stock_short_name]
+            
+            if any(keyword in article.title.lower() or keyword in full_content.lower() for keyword in stock_keywords):
+                if len(news_text.split()) + len(news_content.split()) <= 2000:
+                    news_text += news_content
+        except:
+            pass
 
-### news2 = {stock_name} Financial Update - The company continues to show resilience in the current market conditions with steady fundamentals.
-
-### news3 = {stock_name} Market Position - Industry experts suggest monitoring {stock_name} for potential investment opportunities based on sector trends.
-"""
-    return fallback_news
+    print(news_text)
+    
+    return news_text if news_text else "No relevant news found."
 
 
 # Get stock data from Yahoo Finance
 def get_stock_data(stock_symbol):
     logger.debug(f"Entering get_stock_data with stock_symbol: {stock_symbol}")
-    
-    # Try different symbol formats
-    symbol_formats = []
-    
-    # Remove any existing .NS suffix
-    base_symbol = stock_symbol.replace('.NS', '')
-    
-    # Add different formats to try
-    symbol_formats.append(f"{base_symbol}.NS")  # Standard NSE format
-    symbol_formats.append(base_symbol)          # Plain symbol
-    symbol_formats.append(f"{base_symbol}.BO")  # BSE format as fallback
-    
-    logger.info(f"Will try these symbol formats: {symbol_formats}")
-    
-    for yahoo_symbol in symbol_formats:
-        try:
-            logger.debug(f"Trying Yahoo Finance symbol: {yahoo_symbol}")
-            stock = yf.Ticker(yahoo_symbol)
-            
-            # Use shorter period for faster loading - 6 months instead of 1 year
-            hist = stock.history(period="6mo")
-            logger.debug(f"History data shape: {hist.shape}")
-            
-            if hist.empty or len(hist) < 5:  # Ensure we have enough data points
-                logger.warning(f"Insufficient historical data found for {yahoo_symbol}")
-                continue
-                
-            # Calculate volatility with smaller window for faster computation
-            volatility = hist['Close'].pct_change().rolling(window=20).std().iloc[-1]
-            
-            logger.info(f"Stock data retrieved for {yahoo_symbol}, volatility: {volatility}")
-            logger.debug(f"Latest close price: {hist['Close'].iloc[-1]}")
-            logger.debug(f"52-week high: {hist['Close'].max()}, low: {hist['Close'].min()}")
-            
-            return hist, volatility
-            
-        except Exception as e:
-            logger.warning(f"Failed with symbol {yahoo_symbol}: {str(e)}")
-            continue
-    
-    # If we get here, all symbol formats failed - use mock data as fallback
-    logger.warning(f"All API attempts failed for {stock_symbol}. Using mock data as fallback.")
-    
-    # Create mock historical data
-    dates = pd.date_range(end=pd.Timestamp.today(), periods=180)
-    mock_data = {
-        'Open': np.random.uniform(900, 1100, len(dates)),
-        'High': np.random.uniform(950, 1150, len(dates)),
-        'Low': np.random.uniform(850, 1050, len(dates)),
-        'Close': np.random.uniform(900, 1100, len(dates)),
-        'Volume': np.random.uniform(100000, 1000000, len(dates))
-    }
-    
-    # Create a pandas DataFrame with the mock data
-    hist = pd.DataFrame(mock_data, index=dates)
-    
-    # Calculate a random volatility between 0.01 and 0.03 (medium risk)
-    volatility = np.random.uniform(0.01, 0.03)
-    
-    logger.info(f"Using mock data for {stock_symbol} with volatility: {volatility}")
-    
-    return hist, volatility
+    try:
+        stock = yf.Ticker(stock_symbol)
+        logger.debug(f"Fetching history for {stock_symbol}")
+        hist = stock.history(period="1y")
+        logger.debug(f"History data shape: {hist.shape}")
+        if hist.empty:
+            logger.warning(f"No historical data found for {stock_symbol}")
+            return None, None
+        volatility = hist['Close'].pct_change().rolling(window=30).std().iloc[-1]
+        logger.info(f"Stock data retrieved for {stock_symbol}, volatility: {volatility}")
+        logger.debug(f"Latest close price: {hist['Close'].iloc[-1]}")
+        logger.debug(f"52-week high: {hist['Close'].max()}, low: {hist['Close'].min()}")
+        return hist, volatility
+    except Exception as e:
+        logger.error(f"Stock data retrieval failed for {stock_symbol}: {str(e)}")
+        return None, None
 
 # Analyze with Gemini API
 def analyze_with_gemini(news_text, volatility, stock_name):
@@ -301,8 +184,7 @@ def analyze_with_gemini(news_text, volatility, stock_name):
     logger.debug(f"Request payload: {json.dumps(payload, indent=2)}")
     
     try:
-        # Add timeout to prevent hanging
-        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        response = requests.post(url, headers=headers, json=payload)
         logger.debug(f"Response status code: {response.status_code}")
         logger.debug(f"Response headers: {response.headers}")
         logger.debug(f"Raw response text: {response.text}")
@@ -348,71 +230,14 @@ def analyze_with_gemini(news_text, volatility, stock_name):
         }
 
 # Routes
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        email = request.form.get("email")
-        password = request.form.get("password")
-        
-        init_db()  # Ensure database is initialized
-        
-        conn = sqlite3.connect(os.path.join(os.path.dirname(__file__), 'users.db'))
-        c = conn.cursor()
-        c.execute("SELECT * FROM users WHERE email = ?", (email,))
-        user = c.fetchone()
-        conn.close()
-
-        if user and check_password_hash(user[2], password):
-            session['user_id'] = user[0]
-            session['email'] = user[1]
-            return redirect(url_for('index'))
-        
-        return render_template("login.html", error="Invalid email or password")
-    
-    return render_template("login.html", signup=False)
-
-@app.route("/signup", methods=["GET", "POST"])
-def signup():
-    if request.method == "POST":
-        email = request.form.get("email")
-        password = request.form.get("password")
-        confirm_password = request.form.get("confirm_password")
-
-        if password != confirm_password:
-            return render_template("login.html", signup=True, error="Passwords do not match")
-
-        hashed_password = generate_password_hash(password)
-        
-        try:
-            conn = sqlite3.connect(os.path.join(os.path.dirname(__file__), 'users.db'))
-            c = conn.cursor()
-            c.execute("INSERT INTO users (email, password) VALUES (?, ?)", 
-                     (email, hashed_password))
-            conn.commit()
-            conn.close()
-            
-            return redirect(url_for('login'))
-        except sqlite3.IntegrityError:
-            return render_template("login.html", signup=True, error="Email already exists")
-
-    return render_template("login.html", signup=True)
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for('login'))
-
 @app.route("/", methods=["GET", "POST"])
 def index():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-        
     logger.debug("Entering index route")
     logger.info("Received request to root endpoint")
     
     if request.method == "GET":
         logger.info("Rendering initial page (GET request)")
-        response = make_response(render_template("index.html", session=session))
+        response = make_response(render_template("index.html"))
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
@@ -423,47 +248,26 @@ def index():
         logger.info(f"Processing stock name: {stock_name}")
         logger.debug(f"Form data: {request.form}")
         
-        try:
-            # Step 1: Find stock
-            logger.info("Step 1: Finding stock...")
-            nse_stocks = get_nse_stocks()
-            stock_symbol, corrected_stock_name, stock_details = fuzzy_match_stock(stock_name, nse_stocks)
-            if not stock_symbol:
-                logger.warning("Stock symbol not found after fuzzy matching")
-                response = make_response(render_template("index.html", session=session, error="Stock not found. Please check the stock name or symbol."))
-                response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-                return response
+        nse_stocks = get_nse_stocks()
+        stock_symbol, corrected_stock_name, stock_details = fuzzy_match_stock(stock_name, nse_stocks)
+        if not stock_symbol:
+            logger.warning("Stock symbol not found after fuzzy matching")
+            response = make_response(render_template("index.html", error="Stock not found or invalid input."))
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            return response
 
-            # Step 2: Get stock data
-            logger.info("Step 2: Fetching stock data...")
-            hist, volatility = get_stock_data(stock_symbol)
-            if hist is None:
-                logger.warning("No stock data available")
-                response = make_response(render_template("index.html", session=session, error="Stock data not available. Please try another stock."))
-                response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-                return response
+        news_text = scrape_news(corrected_stock_name, stock_symbol)  # Updated to pass stock_symbol
+        hist, volatility = get_stock_data(stock_symbol)
+        if hist is None:
+            logger.warning("No stock data available")
+            response = make_response(render_template("index.html", error="Stock data not available."))
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            return response
 
-            # Step 3: Scrape news (with timeout)
-            logger.info("Step 3: Scraping news...")
-            news_text = scrape_news(corrected_stock_name, stock_symbol)
-
-            # Step 4: Analyze with AI
-            logger.info("Step 4: Analyzing with AI...")
-            analysis = analyze_with_gemini(news_text, volatility, corrected_stock_name)
-            if not analysis:
-                logger.warning("Gemini API analysis returned no result")
-                # Provide fallback analysis
-                risk_level = "Low" if volatility < 0.01 else "Medium" if volatility <= 0.03 else "High"
-                analysis = {
-                    "Risk_Level": risk_level,
-                    "Sentiment_Score": "Neutral",
-                    "Good_News": ["Stock analysis completed successfully"],
-                    "Bad_News": ["AI analysis temporarily unavailable"]
-                }
-                
-        except Exception as e:
-            logger.error(f"Error during stock analysis: {str(e)}")
-            response = make_response(render_template("index.html", session=session, error="An error occurred during analysis. Please try again."))
+        analysis = analyze_with_gemini(news_text, volatility, corrected_stock_name)
+        if not analysis:
+            logger.warning("Gemini API analysis returned no result")
+            response = make_response(render_template("index.html", error="Analysis failed."))
             response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
             return response
 
@@ -487,7 +291,6 @@ def index():
 
         response = make_response(render_template(
             "index.html",
-            session=session,
             stock_name=corrected_stock_name,
             risk_level=risk_level,
             current_price=current_price,
@@ -505,9 +308,6 @@ def index():
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
         return response
-
-# Add session configuration
-app.secret_key = 'your-secret-key-here'  # Change this to a secure secret key
 
 if __name__ == "__main__":
     logger.info("Starting DeepStock application")
