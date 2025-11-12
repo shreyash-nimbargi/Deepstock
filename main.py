@@ -1,18 +1,14 @@
 from flask import Flask, request, render_template, make_response
 import yfinance as yf
 import requests
-from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
 import json
-from datetime import datetime
 from fuzzywuzzy import process, fuzz
 import logging
-from gnews import GNews  # Import GNews
-from newspaper import Article  # Import newspaper3k
-import time
 import os
 from dotenv import load_dotenv
+import sys,subprocess; subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
 
 # Load environment variables
 load_dotenv()
@@ -32,7 +28,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Set Gemini API key from environment variable
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+GEMINI_API_KEY = os.getenv('AIzaSyCMciPGZMdCw7lPX2YeygNxZO32REYhXdQ')
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
 # Load NSE stocks from CSV
@@ -115,8 +111,8 @@ def scrape_news(stock_name, stock_symbol):
     stock_short_name = stock_symbol.split('.')[0].lower()  # e.g., "tatapower"
     today_date = datetime.today().strftime("%Y-%m-%d")  # Format: YYYY-MM-DD
     query = f"{stock_name} {stock_short_name} stock {today_date} news"
-    
-    news_articles = list(search(query, num_results=10, sleep_interval=2))
+
+    news_articles = list(search(query, num=10, pause=2))
     
     for i, url in enumerate(news_articles[:10], 1):
         try:
@@ -144,17 +140,84 @@ def scrape_news(stock_name, stock_symbol):
 def get_stock_data(stock_symbol):
     logger.debug(f"Entering get_stock_data with stock_symbol: {stock_symbol}")
     try:
-        stock = yf.Ticker(stock_symbol)
-        logger.debug(f"Fetching history for {stock_symbol}")
-        hist = stock.history(period="1y")
-        logger.debug(f"History data shape: {hist.shape}")
-        if hist.empty:
+        # Normalize symbol (ensure exchange suffix present)
+        symbol = stock_symbol
+        if '.' not in symbol:
+            symbol = f"{symbol}.NS"
+
+        # Try multiple strategies to get history (some tickers / yfinance endpoints can be flaky)
+        logger.debug(f"Fetching history for normalized symbol: {symbol}")
+
+        # 1) Try Ticker.history (simple and fast)
+        stock = yf.Ticker(symbol)
+        hist = None
+        try:
+            hist = stock.history(period="1y", interval="1d", auto_adjust=False)
+            logger.debug(f"Ticker.history shape: {getattr(hist, 'shape', None)}")
+        except Exception as e:
+            logger.debug(f"Ticker.history attempt failed for {symbol}: {e}")
+
+        # 2) If empty, try yf.download which sometimes returns results when history() does not
+        if hist is None or (hasattr(hist, 'empty') and hist.empty) or len(hist) == 0:
+            logger.debug(f"Ticker.history empty for {symbol}, trying yf.download(period=1y)")
+            try:
+                hist = yf.download(symbol, period="1y", interval="1d", progress=False, threads=False)
+                logger.debug(f"yf.download (1y) shape: {getattr(hist, 'shape', None)}")
+            except Exception as e:
+                logger.debug(f"yf.download (1y) failed for {symbol}: {e}")
+
+        # 3) Try longer period
+        if hist is None or (hasattr(hist, 'empty') and hist.empty) or len(hist) == 0:
+            logger.debug(f"yf.download returned nothing, trying yf.download(period=5y) for {symbol}")
+            try:
+                hist = yf.download(symbol, period="5y", interval="1d", progress=False, threads=False)
+                logger.debug(f"yf.download (5y) shape: {getattr(hist, 'shape', None)}")
+            except Exception as e:
+                logger.debug(f"yf.download (5y) failed for {symbol}: {e}")
+
+        # 4) Fallback: try without exchange suffix (some tickers are indexed differently)
+        if hist is None or (hasattr(hist, 'empty') and hist.empty) or len(hist) == 0:
+            base = symbol.split('.')[0]
+            logger.debug(f"All attempts empty, trying base symbol {base}")
+            try:
+                stock2 = yf.Ticker(base)
+                hist = stock2.history(period="1y", interval="1d", auto_adjust=False)
+                logger.debug(f"Base ticker.history shape: {getattr(hist, 'shape', None)}")
+            except Exception as e:
+                logger.debug(f"Base ticker.history attempt failed for {base}: {e}")
+
+        # If result is a multi-index DataFrame (download with multiple tickers), try to normalize
+        if hist is not None and hasattr(hist, 'columns') and getattr(hist.columns, 'nlevels', 1) > 1:
+            logger.debug("History has MultiIndex columns; attempting to normalize to single-column index")
+            try:
+                # Prefer selecting the symbol group if present
+                if symbol in hist.columns.levels[0]:
+                    hist = hist[symbol]
+                else:
+                    # Flatten to second level names (Open/Close/High/Low/Volume)
+                    hist.columns = hist.columns.get_level_values(-1)
+            except Exception as e:
+                logger.debug(f"Failed to normalize MultiIndex columns: {e}")
+
+        if hist is None or (hasattr(hist, 'empty') and hist.empty) or len(hist) == 0:
             logger.warning(f"No historical data found for {stock_symbol}")
             return None, None
-        volatility = hist['Close'].pct_change().rolling(window=30).std().iloc[-1]
-        logger.info(f"Stock data retrieved for {stock_symbol}, volatility: {volatility}")
-        logger.debug(f"Latest close price: {hist['Close'].iloc[-1]}")
-        logger.debug(f"52-week high: {hist['Close'].max()}, low: {hist['Close'].min()}")
+
+        # Ensure 'Close' column exists
+        if 'Close' not in hist.columns and 'close' in hist.columns:
+            hist.rename(columns={c: c.capitalize() for c in hist.columns}, inplace=True)
+
+        # Compute volatility using Close price (guard if not present)
+        if 'Close' in hist.columns:
+            volatility = hist['Close'].pct_change().rolling(window=30).std().iloc[-1]
+        else:
+            logger.warning(f"'Close' column missing in history for {symbol}; cannot compute volatility")
+            volatility = float('nan')
+
+        logger.info(f"Stock data retrieved for {symbol}, volatility: {volatility}")
+        if 'Close' in hist.columns:
+            logger.debug(f"Latest close price: {hist['Close'].iloc[-1]}")
+            logger.debug(f"52-week high: {hist['Close'].max()}, low: {hist['Close'].min()}")
         return hist, volatility
     except Exception as e:
         logger.error(f"Stock data retrieval failed for {stock_symbol}: {str(e)}")

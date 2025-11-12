@@ -7,6 +7,5 @@ beautifulsoup4
 fuzzywuzzy
 python-Levenshtein
 newspaper3k
-google
-googlesearch-python
+googlesearch
 python-dotenv
