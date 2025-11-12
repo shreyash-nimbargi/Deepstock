@@ -11,6 +11,11 @@ import logging
 from gnews import GNews  # Import GNews
 from newspaper import Article  # Import newspaper3k
 import time
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__, template_folder='templates')
@@ -26,8 +31,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Set Gemini API key
-GEMINI_API_KEY = "AIzaSyDHRR7_kghJOm9P8gDlMn1tJRLgndoN_rQ"
+# Set Gemini API key from environment variable
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
 # Load NSE stocks from CSV
