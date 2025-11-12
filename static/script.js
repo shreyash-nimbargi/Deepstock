@@ -61,6 +61,33 @@ function handleFormSubmission(e) {
     
     // Show loading state
     showLoadingState();
+    
+    // Allow the form to submit normally - don't prevent default
+    // This ensures the server-side route handler processes the request
+    
+    // Set timeout to reset form if taking too long (60 seconds)
+    setTimeout(() => {
+        const submitBtn = document.querySelector('.search-form input[type="submit"]');
+        const loader = document.querySelector('.loader');
+        
+        if (submitBtn && submitBtn.disabled) {
+            submitBtn.value = 'Analyze';
+            submitBtn.disabled = false;
+            
+            // Clear progress interval if it exists
+            if (submitBtn.dataset.progressInterval) {
+                clearInterval(parseInt(submitBtn.dataset.progressInterval));
+                delete submitBtn.dataset.progressInterval;
+            }
+        }
+        
+        if (loader) {
+            loader.classList.remove('active');
+        }
+        
+        // Show timeout message
+        showInputError(input, 'Request timed out. Please try again.');
+    }, 60000); // 60 seconds timeout
 }
 
 function showInputError(input, message) {
@@ -85,6 +112,28 @@ function showLoadingState() {
     if (submitBtn) {
         submitBtn.value = 'Analyzing...';
         submitBtn.disabled = true;
+        
+        // Add progress messages
+        let step = 1;
+        const steps = [
+            'Finding stock...',
+            'Fetching data...',
+            'Scraping news...',
+            'AI analysis...',
+            'Almost done...'
+        ];
+        
+        const progressInterval = setInterval(() => {
+            if (step < steps.length) {
+                submitBtn.value = steps[step];
+                step++;
+            } else {
+                clearInterval(progressInterval);
+            }
+        }, 3000); // Change message every 3 seconds
+        
+        // Store interval ID to clear it later if needed
+        submitBtn.dataset.progressInterval = progressInterval;
     }
 }
 
