@@ -101,47 +101,6 @@ def fuzzy_match_stock(stock_name, stock_list):
     logger.warning(f"No good match found for {stock_name} (name score: {score}, symbol score: {symbol_score})")
     return None, None, None
 
-import requests
-from bs4 import BeautifulSoup
-from newspaper import Article
-from googlesearch import search
-from datetime import datetime
-
-def scrape_news(stock_name, stock_symbol):
-    stock_name = stock_name.replace("Ltd.", "").strip()  # Clean stock name
-    news_text = ""
-    stock_short_name = stock_symbol.split('.')[0].lower()  # e.g., "tatapower"
-    today_date = datetime.today().strftime("%Y-%m-%d")  # Format: YYYY-MM-DD
-    query = f"{stock_name} {stock_short_name} stock {today_date} news"
-
-    # googlesearch-python returns an iterator; call without kwargs and slice the first results
-    news_articles = list(search(query))[:10]
-    
-    for i, url in enumerate(news_articles[:10], 1):
-        try:
-            article = Article(url, fetch_images=False)
-            article.download()
-            article.parse()
-            full_content = article.text.strip()[:1000]  # Limit to 1000 chars
-
-            news_content = f"### news{i} = {article.title} - {full_content}\n"
-            news_content.replace("Advertisement Remove Ad","")
-            stock_keywords = [stock_name.lower(), stock_short_name]
-            
-            if any(keyword in article.title.lower() or keyword in full_content.lower() for keyword in stock_keywords):
-                if len(news_text.split()) + len(news_content.split()) <= 2000:
-                    news_text += news_content
-        except:
-            pass
-
-    print(news_text)
-    
-    return news_text if news_text else "No relevant news found."
-
-
-# Get stock data from Yahoo Finance
-def get_stock_data(stock_symbol):
-    logger.debug(f"Entering get_stock_data with stock_symbol: {stock_symbol}")
     try:
         # Normalize symbol (ensure exchange suffix present)
         symbol = stock_symbol
