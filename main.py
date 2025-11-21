@@ -8,7 +8,7 @@ from fuzzywuzzy import process, fuzz
 import logging
 import os
 from dotenv import load_dotenv
-import sys,subprocess; subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
+import sys
 
 # Load environment variables
 load_dotenv()
@@ -28,8 +28,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Set Gemini API key from environment variable
-GEMINI_API_KEY = os.getenv('AIzaSyCMciPGZMdCw7lPX2YeygNxZO32REYhXdQ')
-GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+# Allow configuring model via env var; default to gemini-1.5-flash
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/{GEMINI_MODEL}:generateContent"
 
 # Load NSE stocks from CSV
 def get_nse_stocks():
@@ -112,7 +114,8 @@ def scrape_news(stock_name, stock_symbol):
     today_date = datetime.today().strftime("%Y-%m-%d")  # Format: YYYY-MM-DD
     query = f"{stock_name} {stock_short_name} stock {today_date} news"
 
-    news_articles = list(search(query, num=10, pause=2))
+    # googlesearch-python returns an iterator; call without kwargs and slice the first results
+    news_articles = list(search(query))[:10]
     
     for i, url in enumerate(news_articles[:10], 1):
         try:
@@ -273,29 +276,86 @@ def analyze_with_gemini(news_text, volatility, stock_name):
         if not cleaned_text:
             logger.warning("Gemini returned an empty response after cleaning")
             risk_level = "Low" if volatility < 0.01 else "Medium" if volatility <= 0.03 else "High"
-            return {
+            fallback = {
                 "Risk_Level": risk_level,
                 "Sentiment_Score": "Neutral",
                 "Good_News": [],
                 "Bad_News": []
             }
-        
+            return fallback, "fallback"
+
         analysis = json.loads(cleaned_text)
         logger.info("Gemini API analysis successful")
         logger.debug(f"Parsed analysis: {analysis}")
-        return analysis
+        return analysis, "gemini"
     except requests.exceptions.RequestException as e:
+        # On request-level errors (network, 4xx/5xx from API), log and return a safe fallback
         logger.error(f"Gemini API request failed: {str(e)}")
-        return None
-    except (KeyError, json.JSONDecodeError) as e:
-        logger.error(f"Gemini API response parsing failed: {str(e)}")
         risk_level = "Low" if volatility < 0.01 else "Medium" if volatility <= 0.03 else "High"
-        return {
+        fallback = {
             "Risk_Level": risk_level,
             "Sentiment_Score": "Neutral",
             "Good_News": [],
             "Bad_News": []
         }
+        return fallback, "fallback"
+    except (KeyError, json.JSONDecodeError) as e:
+        logger.error(f"Gemini API response parsing failed: {str(e)}")
+        risk_level = "Low" if volatility < 0.01 else "Medium" if volatility <= 0.03 else "High"
+        fallback = {
+            "Risk_Level": risk_level,
+            "Sentiment_Score": "Neutral",
+            "Good_News": [],
+            "Bad_News": []
+        }
+        return fallback, "fallback"
+
+
+# Simple heuristic classifier to split scraped news into good and bad lists
+def classify_news_from_text(news_text, stock_name, max_items=5):
+    """Return (good_news, bad_news) lists using simple sentiment heuristics.
+
+    - Splits news_text by lines that start with '###' (as produced by scrape_news).
+    - Uses TextBlob polarity to classify sentiment per item.
+    - Filters for items that mention the stock_name (case-insensitive).
+    """
+    logger.debug("Entering classify_news_from_text")
+    lines = [ln.strip() for ln in news_text.split('\n') if ln.strip()]
+    candidates = []
+    stock_lower = stock_name.lower()
+    # simple keyword lists for heuristic scoring
+    good_keywords = ['profit', 'growth', 'gain', 'beat', 'rise', 'increase', 'upgrade', 'acqui', 'contract', 'deal', 'win', 'expansion', 'record', 'surge', 'revenue']
+    bad_keywords = ['loss', 'fall', 'drop', 'decline', 'downgrade', 'miss', 'fraud', 'scam', 'lawsuit', 'arrest', 'investigation', 'slump', 'cut', 'warn', 'weak', 'debt']
+
+    for ln in lines:
+        # Expecting lines like: ### news1 = Title - content
+        if ln.startswith('###') and '=' in ln:
+            try:
+                _, rest = ln.split('=', 1)
+                title_body = rest.strip()
+            except:
+                title_body = ln
+        else:
+            title_body = ln
+
+        # check relevance
+        if stock_lower in title_body.lower() or stock_lower.split()[0] in title_body.lower():
+            # short preview
+            preview = title_body
+            # sentiment
+            # heuristic polarity: count keyword matches
+            lowered = preview.lower()
+            pos_score = sum(1 for kw in good_keywords if kw in lowered)
+            neg_score = sum(1 for kw in bad_keywords if kw in lowered)
+            polarity = pos_score - neg_score
+            candidates.append((preview, polarity))
+
+    # sort by polarity for good and bad
+    good = [c[0] for c in sorted(candidates, key=lambda x: -x[1])[:max_items] if c[1] > 0]
+    bad = [c[0] for c in sorted(candidates, key=lambda x: x[1])[:max_items] if c[1] < 0]
+
+    logger.info(f"Classified news into {len(good)} good and {len(bad)} bad items")
+    return good, bad
 
 # Routes
 @app.route("/", methods=["GET", "POST"])
@@ -332,17 +392,38 @@ def index():
             response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
             return response
 
-        analysis = analyze_with_gemini(news_text, volatility, corrected_stock_name)
+        analysis, analysis_source = analyze_with_gemini(news_text, volatility, corrected_stock_name)
+        # Ensure analysis is a dict
         if not analysis:
             logger.warning("Gemini API analysis returned no result")
             response = make_response(render_template("index.html", error="Analysis failed."))
             response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
             return response
 
-        risk_level = analysis.get("Risk_Level", "Unknown")
-        sentiment = analysis.get("Sentiment_Score", "Unknown")
-        good_news = analysis.get("Good_News", [])
-        bad_news = analysis.get("Bad_News", [])
+        # Coerce fields into expected types and fallback to heuristic classification if empty
+        risk_level = analysis.get("Risk_Level", "Unknown") if isinstance(analysis, dict) else "Unknown"
+        sentiment = analysis.get("Sentiment_Score", "Unknown") if isinstance(analysis, dict) else "Unknown"
+        good_news = analysis.get("Good_News", []) if isinstance(analysis, dict) else []
+        bad_news = analysis.get("Bad_News", []) if isinstance(analysis, dict) else []
+
+        # If Gemini returned empty lists for news, use heuristic classifier on scraped news
+        try:
+            if (not good_news) and (not bad_news) and news_text and "No relevant news" not in news_text:
+                logger.info("Gemini returned no news items; running heuristic classifier on scraped news")
+                hg, hb = classify_news_from_text(news_text, corrected_stock_name, max_items=6)
+                # Only use classifier results if it found something
+                if hg or hb:
+                    good_news = hg if hg else good_news
+                    bad_news = hb if hb else bad_news
+                    # Update sentiment based on counts
+                    if len(hg) > len(hb):
+                        sentiment = "Positive"
+                    elif len(hb) > len(hg):
+                        sentiment = "Negative"
+                    else:
+                        sentiment = "Neutral"
+        except Exception as e:
+            logger.error(f"Heuristic classification failed: {e}")
 
         current_price = f"{hist['Close'].iloc[-1]:.2f}"
         high_52 = f"{hist['Close'].max():.2f}"
@@ -368,6 +449,7 @@ def index():
             sentiment=sentiment,
             good_news=good_news,
             bad_news=bad_news,
+            analysis_source=analysis_source,
             industry=industry,
             series=series,
             isin=isin
