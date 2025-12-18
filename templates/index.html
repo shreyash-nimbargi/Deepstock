@@ -1,98 +1,639 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DeepStock</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>Stock Analysis - Beginner Dashboard</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap"
+    rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+    rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#3b82f6", // Blue-500
+            "primary-hover": "#2563eb", // Blue-600
+            "background-light": "#f8fafc", // Slate-50
+            "background-dark": "#0f172a", // Slate-900
+            "surface-light": "#ffffff",
+            "surface-dark": "#1e293b", // Slate-800
+          },
+          fontFamily: {
+            display: ["Inter", "sans-serif"],
+            body: ["Inter", "sans-serif"],
+          },
+          borderRadius: {
+            DEFAULT: "0.75rem", // 12px
+            'xl': "1rem", // 16px
+            '2xl': "1.5rem", // 24px
+            '3xl': "2rem",
+          },
+          boxShadow: {
+            'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+            'glow': '0 0 15px rgba(59, 130, 246, 0.3)',
+          }
+        },
+      },
+    };
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    .tooltip {
+      visibility: hidden;
+      position: absolute;
+      z-index: 50;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 200px;
+      padding: 8px 12px;
+      background-color: #1e293b;
+      color: #fff;
+      text-align: center;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      opacity: 0;
+      transition: opacity 0.2s, visibility 0.2s;
+      margin-bottom: 8px;
+    }
+
+    .tooltip::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -5px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: #1e293b transparent transparent transparent;
+    }
+
+    .has-tooltip:hover .tooltip {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    /* Loading Overlay Styles */
+    .processing-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.85);
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      z-index: 100;
+      flex-direction: column;
+      backdrop-filter: blur(8px);
+    }
+
+    .processing-overlay.active {
+      display: flex;
+    }
+
+    .loader-box p {
+      font-size: 1.25rem;
+      font-weight: 500;
+      margin-bottom: 1rem;
+      color: white;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255, 255, 255, 0.2);
+      border-top: 4px solid #3b82f6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
 </head>
-<body>
-  <div class="navbar">
-    <div class="logo">DeepStock</div>
-  </div>
 
-  <main class="container">
-    <form class="search-form" method="POST">
-      <input type="text" name="stock_name" placeholder="Search stock (e.g. Infosys, Reliance)" required>
-      <button type="submit">Search</button>
-    </form>
+<body
+  class="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-100 transition-colors duration-300">
+  <nav
+    class="sticky top-0 z-50 bg-surface-light/95 dark:bg-surface-dark/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        <a href="/" class="flex items-center flex-shrink-0 gap-3">
+          <div class="bg-primary/10 p-2 rounded-xl">
+            <span class="material-symbols-outlined text-primary text-3xl">query_stats</span>
+          </div>
+          <div>
+            <span
+              class="text-xl font-bold tracking-tight text-slate-900 dark:text-white block leading-none">SmartInvest</span>
+            <span class="text-xs text-slate-500 font-medium">Simplified Analysis</span>
+          </div>
+        </a>
+        <div class="hidden md:flex flex-1 max-w-lg mx-8">
+          <form method="POST" action="/" class="search-form relative w-full group">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span
+                class="material-symbols-outlined text-slate-400 group-focus-within:text-primary transition-colors">search</span>
+            </div>
+            <!-- Added name="stock_name" here for backend integration -->
+            <input name="stock_name"
+              class="block w-full pl-10 pr-3 py-3 border-none bg-slate-100 dark:bg-slate-800/50 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-inner"
+              placeholder="Search a company (e.g. Apple)..." type="text"
+              value="{{ request.form.get('stock_name', '') }}" />
+          </form>
+        </div>
+        <div class="flex items-center gap-4">
+          <button
+            class="hidden md:flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-primary transition-colors px-3 py-2 rounded-lg hover:bg-slate-50">
+            <span class="material-symbols-outlined text-[20px]">help</span>
+            Help Guide
+          </button>
+          <div class="flex items-center gap-3">
+            <button
+              class="px-6 py-2.5 text-sm font-semibold text-primary bg-blue-50 dark:bg-blue-900/20 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all">
+              Log In
+            </button>
+            <button
+              class="px-6 py-2.5 text-sm font-semibold text-white bg-primary rounded-xl hover:bg-primary-hover shadow-lg shadow-blue-500/30 transition-all transform hover:-translate-y-0.5">
+              Get Started
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
 
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
     {% if error %}
-      <div class="error">{{ error }}</div>
+    <div class="mb-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined">error</span>
+        <p>{{ error }}</p>
+      </div>
+    </div>
     {% endif %}
 
     {% if risk_level %}
-      <div class="highlights">
-        <div class="highlight-card">
-          <h3>Risk Level</h3>
-          <p>{{ risk_level }}</p>
+    <!-- Analysis Result View -->
+    <div class="mb-8">
+      <a href="/" class="inline-flex items-center text-sm text-slate-500 hover:text-primary mb-6 transition-colors">
+        <span class="material-symbols-outlined text-[16px] mr-1">arrow_back</span>
+        Back to Home
+      </a>
+      <div
+        class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-primary dark:bg-blue-900/20 dark:text-blue-300 text-sm font-medium mb-4">
+        <span class="material-symbols-outlined text-[18px]">analytics</span>
+        <span>Stock Analysis</span>
+      </div>
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 class="text-3xl md:text-5xl font-bold text-slate-900 dark:text-white mb-2">{{ stock_name }}</h1>
+          <div class="flex flex-wrap gap-3 text-sm text-slate-500 dark:text-slate-400">
+            <span
+              class="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">Industry:
+              {{ industry }}</span>
+            <span
+              class="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">Series:
+              {{ series }}</span>
+            <span
+              class="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">ISIN:
+              {{ isin }}</span>
+          </div>
         </div>
-        <div class="highlight-card">
-          <h3>News Sentiment</h3>
-          <p>{{ sentiment }}</p>
+        <div class="text-right">
+          <div class="text-4xl font-bold text-slate-900 dark:text-white">₹{{ current_price }}</div>
+          <div class="text-sm text-slate-500 mt-1">Current Market Price</div>
         </div>
       </div>
+    </div>
 
-      <div class="dashboard">
-        <div class="card"><h3>Current Price</h3><p>₹{{ current_price }}</p></div>
-        <div class="card"><h3>52-Week High</h3><p>₹{{ high_52 }}</p></div>
-        <div class="card"><h3>52-Week Low</h3><p>₹{{ low_52 }}</p></div>
-        <div class="card"><h3>Volatility (30D)</h3><p>{{ volatility }}</p></div>
+    <!-- Key Metrics Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      <!-- Volatility -->
+      <div
+        class="p-6 bg-white dark:bg-surface-dark rounded-2xl shadow-soft border border-slate-100 dark:border-slate-700">
+        <div class="flex items-start justify-between mb-4">
+          <p class="text-sm font-medium text-slate-500">Volatility (30D)</p>
+          <span class="material-symbols-outlined text-slate-300">show_chart</span>
+        </div>
+        <p class="text-3xl font-bold text-slate-900 dark:text-white">{{ volatility }}</p>
       </div>
 
-      <section class="analysis">
-        <h2>Detailed Stock Analysis</h2>
-        <p><strong>Company:</strong> {{ stock_name }}</p>
-        <p><strong>Industry:</strong> {{ industry }}</p>
-        <p><strong>Series:</strong> {{ series }}</p>
-        <p><strong>ISIN:</strong> {{ isin }}</p>
+      <!-- Risk Level -->
+      <div
+        class="p-6 bg-white dark:bg-surface-dark rounded-2xl shadow-soft border border-slate-100 dark:border-slate-700">
+        <div class="flex items-start justify-between mb-4">
+          <p class="text-sm font-medium text-slate-500">Risk Level</p>
+          <span class="material-symbols-outlined text-slate-300">shield</span>
+        </div>
+        <p
+          class="text-3xl font-bold {% if risk_level == 'High' %}text-red-500{% elif risk_level == 'Medium' %}text-yellow-500{% else %}text-emerald-500{% endif %}">
+          {{ risk_level }}</p>
+      </div>
 
-        <h3>Good News:</h3>
-        <ul>
+      <!-- Sentiment -->
+      <div
+        class="p-6 bg-white dark:bg-surface-dark rounded-2xl shadow-soft border border-slate-100 dark:border-slate-700">
+        <div class="flex items-start justify-between mb-4">
+          <p class="text-sm font-medium text-slate-500">AI Sentiment</p>
+          <span class="material-symbols-outlined text-slate-300">psychology</span>
+        </div>
+        <p
+          class="text-3xl font-bold {% if sentiment == 'Positive' %}text-emerald-500{% elif sentiment == 'Negative' %}text-red-500{% else %}text-blue-500{% endif %}">
+          {{ sentiment }}</p>
+      </div>
+
+      <!-- High/Low -->
+      <div
+        class="p-6 bg-white dark:bg-surface-dark rounded-2xl shadow-soft border border-slate-100 dark:border-slate-700">
+        <div class="flex items-start justify-between mb-2">
+          <p class="text-sm font-medium text-slate-500">52W High/Low</p>
+          <span class="material-symbols-outlined text-slate-300">swap_vert</span>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="text-lg font-bold text-slate-900 dark:text-white">H: {{ high_52 }}</span>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="text-lg font-bold text-slate-900 dark:text-white">L: {{ low_52 }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- News Analysis -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+      <!-- Good News -->
+      <div
+        class="bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl p-6 border border-emerald-100 dark:border-emerald-800">
+        <h3 class="text-xl font-bold text-emerald-900 dark:text-emerald-100 mb-6 flex items-center gap-2">
+          <span class="material-symbols-outlined">thumb_up</span> Positive Indicators
+        </h3>
+        <ul class="space-y-4">
           {% for news in good_news %}
-            <li>{{ news }}</li>
+          <li
+            class="flex gap-3 text-emerald-800 dark:text-emerald-200 text-sm leading-relaxed bg-white dark:bg-emerald-900/20 p-3 rounded-xl border border-emerald-100/50">
+            <span
+              class="material-symbols-outlined text-[20px] flex-shrink-0 mt-0.5 text-emerald-600">check_circle</span>
+            {{ news }}
+          </li>
+          {% else %}
+          <li class="text-slate-500 italic p-3">No specific positive news detected.</li>
           {% endfor %}
         </ul>
+      </div>
 
-        <h3>Bad News:</h3>
-        <ul>
+      <!-- Bad News -->
+      <div class="bg-red-50/50 dark:bg-red-900/10 rounded-2xl p-6 border border-red-100 dark:border-red-800">
+        <h3 class="text-xl font-bold text-red-900 dark:text-red-100 mb-6 flex items-center gap-2">
+          <span class="material-symbols-outlined">warning</span> Risk Factors
+        </h3>
+        <ul class="space-y-4">
           {% for news in bad_news %}
-            <li>{{ news }}</li>
+          <li
+            class="flex gap-3 text-red-800 dark:text-red-200 text-sm leading-relaxed bg-white dark:bg-red-900/20 p-3 rounded-xl border border-red-100/50">
+            <span class="material-symbols-outlined text-[20px] flex-shrink-0 mt-0.5 text-red-600">error</span>
+            {{ news }}
+          </li>
+          {% else %}
+          <li class="text-slate-500 italic p-3">No specific negative news detected.</li>
           {% endfor %}
         </ul>
-      </section>
+      </div>
+    </div>
+
+    <!-- Gemini Disclaimer -->
+    {% if analysis_source == 'gemini' %}
+    <div class="text-center text-xs text-slate-400 mb-8">
+      <span class="material-symbols-outlined text-[14px] align-text-bottom">auto_awesome</span>
+      Analysis powered by Google Gemini AI
+    </div>
+    {% endif %}
+
+
     {% else %}
-      <!-- Stock Preview Table (Only shown when no search result is active) -->
-      <div class="stock-preview">
-        <h3>Available Stocks</h3>
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Company</th>
-                <th>Symbol</th>
-                <th>Industry</th>
-                <th>Series</th>
-                <th>ISIN</th>
-              </tr>
-            </thead>
-            <tbody id="previewTableBody">
-              <!-- Populated by script.js -->
-            </tbody>
-          </table>
+    <!-- Default Landing Page (When no search active) -->
+    <div class="text-center mb-16 max-w-4xl mx-auto">
+      <div
+        class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-primary dark:bg-blue-900/20 dark:text-blue-300 text-sm font-medium mb-6">
+        <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
+        <span>AI-Powered Insights for Beginners</span>
+      </div>
+      <h1
+        class="text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 dark:text-white mb-6 tracking-tight leading-tight">
+        Invest with Confidence,<br /><span class="text-primary">Without the Jargon.</span>
+      </h1>
+      <p class="text-xl text-slate-600 dark:text-slate-400 leading-relaxed mb-10 max-w-2xl mx-auto">
+        We translate complex market data into simple recommendations. Find your next investment opportunity in seconds,
+        not hours.
+      </p>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+        <div
+          class="flex flex-col items-center justify-center p-6 bg-white dark:bg-surface-dark rounded-2xl shadow-soft border border-slate-100 dark:border-slate-700 hover:border-primary/50 hover:shadow-lg transition-all group cursor-pointer">
+          <div
+            class="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+            <span class="material-symbols-outlined text-2xl">search</span>
+          </div>
+          <span class="font-semibold text-slate-800 dark:text-white">Find Stocks</span>
+        </div>
+        <div
+          class="flex flex-col items-center justify-center p-6 bg-white dark:bg-surface-dark rounded-2xl shadow-soft border border-slate-100 dark:border-slate-700 hover:border-primary/50 hover:shadow-lg transition-all group cursor-pointer">
+          <div
+            class="w-12 h-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+            <span class="material-symbols-outlined text-2xl">visibility</span>
+          </div>
+          <span class="font-semibold text-slate-800 dark:text-white">My Watchlist</span>
+        </div>
+        <div
+          class="flex flex-col items-center justify-center p-6 bg-white dark:bg-surface-dark rounded-2xl shadow-soft border border-slate-100 dark:border-slate-700 hover:border-primary/50 hover:shadow-lg transition-all group cursor-pointer">
+          <div
+            class="w-12 h-12 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+            <span class="material-symbols-outlined text-2xl">pie_chart</span>
+          </div>
+          <span class="font-semibold text-slate-800 dark:text-white">Track Portfolio</span>
+        </div>
+        <div
+          class="flex flex-col items-center justify-center p-6 bg-white dark:bg-surface-dark rounded-2xl shadow-soft border border-slate-100 dark:border-slate-700 hover:border-primary/50 hover:shadow-lg transition-all group cursor-pointer">
+          <div
+            class="w-12 h-12 bg-blue-50 text-primary rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+            <span class="material-symbols-outlined text-2xl">lightbulb</span>
+          </div>
+          <span class="font-semibold text-slate-800 dark:text-white">AI Ideas</span>
         </div>
       </div>
+    </div>
+
+    <!-- Static Examples Section (Keeping User's Top Picks for visual consistency when no search) -->
+    <div class="flex flex-col md:flex-row items-end justify-between mb-8 gap-4">
+      <div>
+        <h2 class="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary">stars</span>
+          Top Picks for You
+        </h2>
+        <p class="text-slate-500 dark:text-slate-400 mt-2 text-base">Simple, AI-curated opportunities based on safety
+          and growth potential.</p>
+      </div>
+      <div class="flex gap-2 text-sm bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+        <button
+          class="px-4 py-1.5 bg-white dark:bg-slate-700 shadow-sm rounded-md font-medium text-slate-800 dark:text-white">All
+          Picks</button>
+        <button class="px-4 py-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">Low
+          Risk</button>
+        <button class="px-4 py-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">High
+          Growth</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+      <!-- Example 1 -->
+      <div
+        class="bg-surface-light dark:bg-surface-dark rounded-2xl shadow-soft border border-slate-100 dark:border-slate-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+        <div class="p-6 border-b border-slate-100 dark:border-slate-700/50">
+          <div class="flex justify-between items-start mb-4">
+            <div>
+              <h3 class="font-bold text-xl text-slate-900 dark:text-white">Reliance Industries</h3>
+              <div class="flex items-center gap-2 mt-1">
+                <span
+                  class="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded">RELIANCE</span>
+                <span class="text-xs text-slate-400">Large Cap</span>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="font-bold text-2xl text-slate-900 dark:text-white">₹1,544.40</div>
+              <div
+                class="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold mt-1">
+                <span class="material-symbols-outlined text-[16px] mr-1">trending_up</span> +2.10%
+              </div>
+            </div>
+          </div>
+          <div
+            class="w-full py-2.5 bg-slate-900 dark:bg-slate-700 text-white rounded-xl font-medium flex items-center justify-center gap-2 opacity-60 cursor-not-allowed">
+            Sample Data
+          </div>
+        </div>
+        <div class="p-6 bg-slate-50/50 dark:bg-slate-800/20 rounded-b-2xl">
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div
+              class="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700 relative has-tooltip cursor-help">
+              <span class="tooltip">Our AI predicts the potential profit over the next year based on past trends.</span>
+              <p class="text-xs text-slate-500 mb-1 flex items-center gap-1">Growth Forecast (1Y) <span
+                  class="material-symbols-outlined text-[14px] text-slate-400">info</span></p>
+              <p class="text-lg font-bold text-emerald-500">+10.5%</p>
+            </div>
+            <div
+              class="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700 relative has-tooltip cursor-help">
+              <span class="tooltip">Estimated volatility.</span>
+              <p class="text-xs text-slate-500 mb-1 flex items-center gap-1">Risk Level <span
+                  class="material-symbols-outlined text-[14px] text-slate-400">info</span></p>
+              <p class="text-lg font-bold text-red-500">High</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><span
+                  class="material-symbols-outlined text-[18px]">thumb_up</span></div>
+              <div>
+                <p class="text-xs text-emerald-800 font-semibold uppercase tracking-wider">AI Suggestion</p>
+                <p class="text-sm font-bold text-emerald-900">Good to Buy</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Example 2 -->
+      <div
+        class="bg-surface-light dark:bg-surface-dark rounded-2xl shadow-soft border border-slate-100 dark:border-slate-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+        <div class="p-6 border-b border-slate-100 dark:border-slate-700/50">
+          <div class="flex justify-between items-start mb-4">
+            <div>
+              <h3 class="font-bold text-xl text-slate-900 dark:text-white">Tata Steel</h3>
+              <div class="flex items-center gap-2 mt-1">
+                <span
+                  class="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded">TATASTEEL</span>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="font-bold text-2xl text-slate-900 dark:text-white">₹170.34</div>
+              <div
+                class="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold mt-1">
+                <span class="material-symbols-outlined text-[16px] mr-1">trending_up</span> +0.30%
+              </div>
+            </div>
+          </div>
+          <div
+            class="w-full py-2.5 bg-slate-900 dark:bg-slate-700 text-white rounded-xl font-medium flex items-center justify-center gap-2 opacity-60 cursor-not-allowed">
+            Sample Data
+          </div>
+        </div>
+        <div class="p-6 bg-slate-50/50 dark:bg-slate-800/20 rounded-b-2xl">
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+              <p class="text-xs text-slate-500 mb-1">Growth Forecast (1Y)</p>
+              <p class="text-lg font-bold text-emerald-500">+7.5%</p>
+            </div>
+            <div class="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+              <p class="text-xs text-slate-500 mb-1">Risk Level</p>
+              <p class="text-lg font-bold text-red-500">High</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-100 rounded-xl">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600"><span
+                  class="material-symbols-outlined text-[18px]">pan_tool</span></div>
+              <div>
+                <p class="text-xs text-yellow-800 font-semibold uppercase tracking-wider">AI Suggestion</p>
+                <p class="text-sm font-bold text-yellow-900">Wait & Hold</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Example 3 -->
+      <div
+        class="bg-surface-light dark:bg-surface-dark rounded-2xl shadow-soft border border-slate-100 dark:border-slate-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+        <div class="p-6 border-b border-slate-100 dark:border-slate-700/50">
+          <div class="flex justify-between items-start mb-4">
+            <div>
+              <h3 class="font-bold text-xl text-slate-900 dark:text-white">Adani Ports</h3>
+              <div class="flex items-center gap-2 mt-1">
+                <span
+                  class="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold rounded">ADANIPORTS</span>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="font-bold text-2xl text-slate-900 dark:text-white">₹1,486.30</div>
+              <div class="inline-flex items-center px-2 py-1 bg-red-50 text-red-600 rounded-lg text-xs font-bold mt-1">
+                <span class="material-symbols-outlined text-[16px] mr-1">trending_down</span> -0.85%
+              </div>
+            </div>
+          </div>
+          <div
+            class="w-full py-2.5 bg-slate-900 dark:bg-slate-700 text-white rounded-xl font-medium flex items-center justify-center gap-2 opacity-60 cursor-not-allowed">
+            Sample Data
+          </div>
+        </div>
+        <div class="p-6 bg-slate-50/50 dark:bg-slate-800/20 rounded-b-2xl">
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+              <p class="text-xs text-slate-500 mb-1">Growth Forecast (1Y)</p>
+              <p class="text-lg font-bold text-emerald-500">+21.0%</p>
+            </div>
+            <div class="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+              <p class="text-xs text-slate-500 mb-1">Risk Level</p>
+              <p class="text-lg font-bold text-red-500">High</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><span
+                  class="material-symbols-outlined text-[18px]">thumb_up</span></div>
+              <div>
+                <p class="text-xs text-emerald-800 font-semibold uppercase tracking-wider">AI Suggestion</p>
+                <p class="text-sm font-bold text-emerald-900">Good to Buy</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Education Section -->
+    <div class="mt-16 bg-blue-600 rounded-3xl p-8 md:p-12 text-white relative overflow-hidden">
+      <div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full -translate-y-1/2 translate-x-1/2">
+      </div>
+      <div class="absolute bottom-0 left-0 w-32 h-32 bg-white opacity-5 rounded-full translate-y-1/2 -translate-x-1/2">
+      </div>
+      <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+        <div class="max-w-xl">
+          <h3 class="text-2xl md:text-3xl font-bold mb-4">New to Investing?</h3>
+          <p class="text-blue-100 text-lg mb-6">Our "Academy" section breaks down complex terms into simple English.
+            Learn about P/E ratios, Dividends, and Market Caps in 5 minutes.</p>
+          <button
+            class="px-6 py-3 bg-white text-blue-600 font-bold rounded-xl hover:bg-blue-50 transition-colors shadow-lg">
+            Start Learning Free
+          </button>
+        </div>
+        <div class="flex-shrink-0 bg-white/10 p-4 rounded-2xl backdrop-blur-sm border border-white/20">
+          <div class="flex gap-4">
+            <div class="text-center">
+              <div class="text-3xl font-bold">10k+</div>
+              <div class="text-sm text-blue-200">New Investors</div>
+            </div>
+            <div class="w-px bg-white/20"></div>
+            <div class="text-center">
+              <div class="text-3xl font-bold">50+</div>
+              <div class="text-sm text-blue-200">Video Lessons</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     {% endif %}
   </main>
 
+  <footer class="border-t border-slate-200 dark:border-slate-700 bg-surface-light dark:bg-surface-dark mt-12 py-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <div>
+          <div class="flex items-center gap-2 mb-4">
+            <div class="bg-primary/10 p-1.5 rounded-lg">
+              <span class="material-symbols-outlined text-primary text-xl">query_stats</span>
+            </div>
+            <span class="text-lg font-bold text-slate-900 dark:text-white">SmartInvest</span>
+          </div>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Making stock market analysis accessible for everyone.
+          </p>
+        </div>
+        <div>
+          <h4 class="font-bold text-slate-800 dark:text-white mb-4">Quick Links</h4>
+          <ul class="space-y-2 text-sm text-slate-500 dark:text-slate-400">
+            <li><a class="hover:text-primary transition-colors" href="#">Beginner's Guide</a></li>
+            <li><a class="hover:text-primary transition-colors" href="#">Stock Screener</a></li>
+            <li><a class="hover:text-primary transition-colors" href="#">Glossary</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="font-bold text-slate-800 dark:text-white mb-4">Legal</h4>
+          <p class="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
+            This platform uses artificial intelligence to analyze stock data. All recommendations are for informational
+            purposes only and not financial advice. Past performance does not guarantee future results.
+          </p>
+        </div>
+      </div>
+      <div class="text-center pt-8 border-t border-slate-100 dark:border-slate-800">
+        <p class="text-sm text-slate-400">© 2025 SmartInvest. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
   <div class="processing-overlay">
-    <div class="loader-box">
-      <p>Analyzing Stock...</p>
-      <div class="spinner"></div>
+    <div class="loader-box text-center">
+      <p>Analyzing Stock Market Data...</p>
+      <div class="spinner mx-auto"></div>
+      <p class="text-sm text-slate-400 mt-4">This may take up to 30 seconds</p>
     </div>
   </div>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
+
 </html>
