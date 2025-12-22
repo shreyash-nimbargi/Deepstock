@@ -76,7 +76,8 @@ pip install -r requirements.txt
 
 3. **Set up your Gemini API key:**
    - Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-   - Update the `GEMINI_API_KEY` variable in `main.py`
+   - Create a `.env` file in the project root (copy from `.env.example`)
+   - Add your API key: `GEMINI_API_KEY=your-actual-api-key-here`
 
 4. **Run the application:**
 ```bash
@@ -132,11 +133,17 @@ python main.py
 ## 🔧 Configuration
 
 ### Environment Variables
-```python
-# In main.py, update these variables:
-GEMINI_API_KEY = "your-gemini-api-key-here"
-app.secret_key = 'your-secret-key-here'  # Change for production
+Create a `.env` file in the project root with the following variables:
 ```
+GEMINI_API_KEY=your-gemini-api-key-here
+```
+
+You can copy `.env.example` to `.env` and update with your actual values.
+
+**Important Security Notes:**
+- Never commit your `.env` file to version control
+- The `.env` file is already listed in `.gitignore`
+- Get your Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
 
 ### Database
 - SQLite database is automatically created on first run
