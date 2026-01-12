@@ -9,3 +9,4 @@ python-Levenshtein
 newspaper3k
 googlesearch-python
 python-dotenv
+lxml_html_clean
